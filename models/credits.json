@@ -1,0 +1,212 @@
+{
+ "hero": {
+  "id": "UcLErL2W37",
+  "title": "Characters Sam",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "url": "https://poly.pizza/m/UcLErL2W37"
+ },
+ "zombie": {
+  "id": "VlXjG0N8Eg",
+  "title": "Zombie",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "url": "https://poly.pizza/m/VlXjG0N8Eg"
+ },
+ "gun_pistol": {
+  "id": "J3i9KDQ3kt",
+  "title": "Pistol",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "url": "https://poly.pizza/m/J3i9KDQ3kt"
+ },
+ "gun_revolver": {
+  "id": "9C26wSpMS0",
+  "title": "Revolver",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "url": "https://poly.pizza/m/9C26wSpMS0"
+ },
+ "gun_smg": {
+  "id": "7ehatxr7FY",
+  "title": "Submachine Gun",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "url": "https://poly.pizza/m/7ehatxr7FY"
+ },
+ "gun_shotgun": {
+  "id": "ZmPTnh7njL",
+  "title": "Shotgun",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "url": "https://poly.pizza/m/ZmPTnh7njL"
+ },
+ "gun_rifle": {
+  "id": "K2lXTYFSLC",
+  "title": "Assault Rifle",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "url": "https://poly.pizza/m/K2lXTYFSLC"
+ },
+ "gun_sniper": {
+  "id": "ASOMZIErq3",
+  "title": "Sniper Rifle",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "url": "https://poly.pizza/m/ASOMZIErq3"
+ },
+ "gun_rocket": {
+  "id": "GCqUvqleqN",
+  "title": "Rocket Launcher",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "url": "https://poly.pizza/m/GCqUvqleqN"
+ },
+ "gun_ray": {
+  "id": "DIcib0mihf",
+  "title": "Ray Gun",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "url": "https://poly.pizza/m/DIcib0mihf"
+ },
+ "gun_grenade": {
+  "id": "ZKvWhvu4tV",
+  "title": "Grenade Launcher",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "url": "https://poly.pizza/m/ZKvWhvu4tV"
+ },
+ "ac": {
+  "id": "amFuyE3IF6",
+  "title": "Air Conditioner",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "url": "https://poly.pizza/m/amFuyE3IF6"
+ },
+ "ac_double": {
+  "id": "0MdE89Ijtt",
+  "title": "Air Conditioner",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "url": "https://poly.pizza/m/0MdE89Ijtt"
+ },
+ "watertower": {
+  "id": "WGSUkExDJ4",
+  "title": "Watertower",
+  "creator": "Kay Lousberg",
+  "licence": "CC0 1.0",
+  "url": "https://poly.pizza/m/WGSUkExDJ4"
+ },
+ "watertank": {
+  "id": "XVB8vUbnZb",
+  "title": "Water Tank",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "url": "https://poly.pizza/m/XVB8vUbnZb"
+ },
+ "dish": {
+  "id": "IDRrztoAMB",
+  "title": "Satellite Dish",
+  "creator": "Kenney",
+  "licence": "CC0 1.0",
+  "url": "https://poly.pizza/m/IDRrztoAMB"
+ },
+ "antenna": {
+  "id": "Fbdg52kqJ6",
+  "title": "Roof Antenna",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "url": "https://poly.pizza/m/Fbdg52kqJ6"
+ },
+ "vent": {
+  "id": "UDFcnJ0U73",
+  "title": "Vent",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "url": "https://poly.pizza/m/UDFcnJ0U73"
+ },
+ "barrel_x": {
+  "id": "1orHe0kCc1",
+  "title": "Exploding Barrel",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "url": "https://poly.pizza/m/1orHe0kCc1"
+ },
+ "car_sport": {
+  "id": "1mkmFkAz5v",
+  "title": "Sports Car",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "url": "https://poly.pizza/m/1mkmFkAz5v"
+ },
+ "car_hatch": {
+  "id": "BG0KAhmGDt",
+  "title": "Car Hatchback",
+  "creator": "Kay Lousberg",
+  "licence": "CC0 1.0",
+  "url": "https://poly.pizza/m/BG0KAhmGDt"
+ },
+ "car_police": {
+  "id": "BwwnUrWGmV",
+  "title": "Police Car",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "url": "https://poly.pizza/m/BwwnUrWGmV"
+ },
+ "car_sport2": {
+  "id": "OyqKvX9xNh",
+  "title": "Sports Car",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "url": "https://poly.pizza/m/OyqKvX9xNh"
+ },
+ "car_sedan": {
+  "id": "unqqkULtRU",
+  "title": "Car",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "url": "https://poly.pizza/m/unqqkULtRU"
+ },
+ "dumpster": {
+  "id": "PKsbolkZSr",
+  "title": "Dumpster",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "url": "https://poly.pizza/m/PKsbolkZSr"
+ },
+ "cone": {
+  "id": "aDIrUbMbW3",
+  "title": "Traffic Cone",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "url": "https://poly.pizza/m/aDIrUbMbW3"
+ },
+ "barrier": {
+  "id": "nugx3heueH",
+  "title": "Traffic Barrier",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "url": "https://poly.pizza/m/nugx3heueH"
+ },
+ "streetlight": {
+  "id": "vPFSLYh6sg",
+  "title": "Streetlight",
+  "creator": "Kay Lousberg",
+  "licence": "CC0 1.0",
+  "url": "https://poly.pizza/m/vPFSLYh6sg"
+ },
+ "trashbags": {
+  "id": "eitNk4I4R1",
+  "title": "Trash Bags",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "url": "https://poly.pizza/m/eitNk4I4R1"
+ },
+ "chest": {
+  "id": "O72u4Drp8k",
+  "title": "Chest",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "url": "https://poly.pizza/m/O72u4Drp8k"
+ }
+}
