@@ -56,7 +56,16 @@ await page.evaluate(() => {
         tx += dx / d2; tz += dz / d2;
       }
     }
-    const l = Math.hypot(tx, tz);
+    let l = Math.hypot(tx, tz);
+    // заклещен ли е (иска да върви, а стои) → заобикаля настрани
+    const now = performance.now();
+    window.__st = window.__st || { x: h.x, z: h.z, t: now, side: 0, until: 0 };
+    const st = window.__st;
+    if (now - st.t > 900) {
+      if (l > 0.3 && Math.hypot(h.x - st.x, h.z - st.z) < 0.6 && !g.hero.leap) { st.side = Math.random() < 0.5 ? 1 : -1; st.until = now + 800; }
+      st.x = h.x; st.z = h.z; st.t = now;
+    }
+    if (now < st.until && l > 0.3) { const ox = tx; tx = tx * 0.3 - tz * st.side; tz = tz * 0.3 + ox * st.side; l = Math.hypot(tx, tz); }
     g.input.x = l > 0.3 ? tx / l : 0;
     g.input.z = l > 0.3 ? tz / l : 0;
   }, 50);

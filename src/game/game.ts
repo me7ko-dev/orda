@@ -81,6 +81,24 @@ function roundRect(g: CanvasRenderingContext2D, x: number, y: number, w: number,
   g.closePath();
 }
 
+/** Червени бъчви: ръцете ги взривяват, когато около тях се събере тълпа. */
+class Barrels {
+  list: { x: number; y: number; z: number; mesh: THREE.Object3D; alive: boolean; back: number }[] = [];
+  constructor(scene: THREE.Scene, spots: { x: number; y: number; z: number }[]) {
+    for (const s of spots) {
+      const m = fitModel(cloneModel('barrel_x'), 1.05);
+      shadows(m, true, false);
+      m.position.set(s.x, s.y, s.z);
+      m.rotation.y = Math.random() * 6;
+      scene.add(m);
+      this.list.push({ ...s, mesh: m, alive: true, back: 0 });
+    }
+  }
+  reset() {
+    for (const b of this.list) { b.alive = true; b.mesh.visible = true; b.mesh.scale.setScalar(1); }
+  }
+}
+
 export type Stats = { time: number; kills: number; wave: number; best: { time: number; kills: number } };
 
 export class Game {
@@ -89,6 +107,9 @@ export class Game {
   horde: Horde;
   fx: FX;
   arms: Arms;
+  barrels: Barrels;
+  private barrelT = 0;
+  private barrelPick: { id: number; p: THREE.Vector3 } | null = null;
   state: GameState = 'menu';
   time = 0;
   wave = 1;
@@ -107,6 +128,8 @@ export class Game {
   private camLook = new THREE.Vector3();
   private overT = 0;
   private groanT = 2;
+  /** отдалечаване на камерата (0.6 близо … 1.5 далеч), пази се */
+  zoom = 1;
   /** за тестове: камерата гледа от тук */
   debugCam: { pos: THREE.Vector3; look: THREE.Vector3 } | null = null;
   // към интерфейса
@@ -128,9 +151,21 @@ export class Game {
     this.hero = new Hero(this.city);
     scene.add(this.hero.root);
     this.arms = new Arms(scene, this.hero, this.horde, this.fx);
+    this.barrels = new Barrels(scene, this.city.barrelSpots);
+    for (const f of this.city.fires) this.fx.addFire(f.x, f.y, f.z, f.s);
+    this.arms.barrelPick = () => this.barrelPick;
+    this.arms.onBarrel = (id) => this.blowBarrel(id);
 
     this.hero.onLeap = () => sfx.leap();
-    this.hero.onLand = () => sfx.land();
+    this.hero.onLand = () => {
+      sfx.land();
+      this.fx.dust(this.hero.pos.x, this.hero.pos.y, this.hero.pos.z, 10, 1.1);
+      this.fx.shake = Math.min(1, this.fx.shake + 0.12);
+    };
+    this.horde.onLand = (i) => {
+      const H = this.horde;
+      if (Math.abs(H.x[i] - this.hero.pos.x) + Math.abs(H.z[i] - this.hero.pos.z) < 30) this.fx.dust(H.x[i], H.y[i], H.z[i], 3, 0.7 * H.scale[i]);
+    };
     this.horde.onAttack = (_i, dmg) => {
       if (this.state !== 'play') return;
       if (this.hero.hurt(dmg)) {
@@ -142,8 +177,8 @@ export class Game {
     this.horde.onKill = (i) => {
       this.kills++;
       const H = this.horde;
-      const big = H.scale[i];
-      this.fx.blood(H.x[i], H.y[i], H.z[i], this.floorUnder(H.x[i], H.z[i], H.y[i]), big, H.vx[i] * 0.1, H.vz[i] * 0.1);
+      const big = H.scale[i] * H.scale[i];
+      this.fx.blood(H.x[i], H.y[i], H.z[i], this.floorUnder(H.x[i], H.z[i], H.y[i]), big * 1.3, H.vx[i] * 0.1, H.vz[i] * 0.1);
       sfx.splat();
       if (i === this.boss) {
         this.boss = -1;
@@ -155,6 +190,7 @@ export class Game {
     this.arms.onShot = (k) => sfx.shot(WEAPONS[k].sound);
     this.arms.onExplode = () => sfx.explosion();
 
+    try { this.zoom = Math.min(1.5, Math.max(0.6, +(localStorage.getItem('orda-zoom') || 1))); } catch { /* */ }
     this.camLook.copy(this.hero.pos);
     this.camPos.copy(this.hero.pos).add(new THREE.Vector3(0, 30, 22));
     // за менюто: малко зомбита наоколо
@@ -192,9 +228,11 @@ export class Game {
     this.nextChest = DIRECTOR.chestFirst;
     this.slots.fill(null);
     this.slots[4] = makeItem('pistol', 1);
+    this.barrels.reset();
+    this.barrelPick = null;
     this.arms.clear();
     this.syncArms();
-    for (let k = 0; k < 30; k++) this.spawnOne('walker', 1, 14, 34);
+    for (let k = 0; k < 32; k++) this.spawnOne('walker', 1, 16, 34);
     this.state = 'play';
     this.engine.timeScale = 1;
     this.onBanner?.('ВЪЛНА 1', 'wave');
@@ -283,7 +321,7 @@ export class Game {
     else if (!on && this.state === 'paused') { this.state = 'play'; this.engine.timeScale = 1; }
   }
 
-  private spawnOne(kind: ZombieKind, hpMul: number, dmin = 16, dmax = 38): number {
+  private spawnOne(kind: ZombieKind, hpMul: number, dmin = 13, dmax = 34): number {
     const c = this.city;
     const hp = this.hero.pos;
     const tmp = { x: 0, z: 0 };
@@ -307,8 +345,14 @@ export class Game {
       if (far.length && Math.random() < 0.6) cand = far;
     }
     const b = cand.length ? cand[Math.floor(Math.random() * cand.length)] : this.hero.bld;
-    const x = b.x0 + 2 + Math.random() * (b.x1 - b.x0 - 4);
-    const z = b.z0 + 2 + Math.random() * (b.z1 - b.z0 - 4);
+    // място без кулички/капандури наблизо
+    let x = (b.x0 + b.x1) / 2, z = (b.z0 + b.z1) / 2;
+    for (let tries = 0; tries < 40; tries++) {
+      const tx = b.x0 + 2 + Math.random() * (b.x1 - b.x0 - 4);
+      const tz = b.z0 + 2 + Math.random() * (b.z1 - b.z0 - 4);
+      const clear = this.city.blocksOf(b.i).every((k) => tx < k.x0 - 1.6 || tx > k.x1 + 1.6 || tz < k.z0 - 1.6 || tz > k.z1 + 1.6);
+      if (clear) { x = tx; z = tz; break; }
+    }
     if (this.chest) this.engine.scene.remove(this.chest.root);
     this.chest = new Chest(b, x, z);
     this.engine.scene.add(this.chest.root);
@@ -348,12 +392,12 @@ export class Game {
     if (this.chest) {
       const c = this.chest;
       const d = Math.hypot(c.x - this.hero.pos.x, c.z - this.hero.pos.z);
-      if (d < 1.5 && this.hero.bld === c.b && !this.hero.leap) {
+      if (d < 1.8 && this.hero.bld === c.b && !this.hero.leap) {
         this.engine.scene.remove(c.root);
         this.chest = null;
         this.nextChest = t + DIRECTOR.chestEvery(t);
         sfx.chest();
-        this.fx.flash(new THREE.Vector3(c.x, c.b.h + 1, c.z), 3, 0xffe07a, 0.3);
+        this.fx.sparkle(c.x, c.b.h, c.z, 40);
         this.openPack(true);
       }
     }
@@ -364,12 +408,13 @@ export class Game {
     if (playing) {
       this.time += dt;
       this.director(dt);
+      this.updateBarrels(dt);
     }
     // героят (в менюто стои)
     const ix = playing ? this.input.x : 0, iz = playing ? this.input.z : 0;
     this.hero.update(dt, ix, iz);
     this.horde.update(dt, this.hero);
-    this.arms.update(dt, this.state !== 'menu' || true);
+    this.arms.update(dt, !this.hero.dead);
     this.chest?.update(dt);
     this.fx.update(dt, this.engine.camera);
 
@@ -382,6 +427,46 @@ export class Game {
       if (this.overT > 1.6) this.gameOver();
     }
     this.updateCamera(raw);
+  }
+
+  private updateBarrels(dt: number) {
+    for (const b of this.barrels.list) {
+      if (b.alive) continue;
+      b.back -= dt;
+      if (b.back <= 0) {
+        b.alive = true;
+        b.mesh.visible = true;
+        b.mesh.scale.setScalar(0.01);
+      }
+    }
+    for (const b of this.barrels.list) if (b.alive && b.mesh.scale.x < 1) b.mesh.scale.setScalar(Math.min(1, b.mesh.scale.x + dt * 2));
+    // коя бъчва да се взриви (на 0,25 с)
+    this.barrelT -= dt;
+    if (this.barrelT > 0) return;
+    this.barrelT = 0.25;
+    this.barrelPick = null;
+    const hp = this.hero.pos;
+    let best = 3;
+    const tmp: number[] = [];
+    this.barrels.list.forEach((b, id) => {
+      if (!b.alive) return;
+      const d = Math.hypot(b.x - hp.x, (b.y - hp.y) * 1.5, b.z - hp.z);
+      if (d > 17 || d < 3.5) return;
+      let n = 0;
+      for (const i of this.horde.near(b.x, b.z, 3.4, tmp)) if (Math.abs(this.horde.y[i] - b.y) < 2.5) n++;
+      if (n > best) { best = n; this.barrelPick = { id, p: new THREE.Vector3(b.x, b.y + 0.55, b.z) }; }
+    });
+  }
+
+  private blowBarrel(id: number) {
+    const b = this.barrels.list[id];
+    if (!b || !b.alive) return;
+    b.alive = false;
+    b.mesh.visible = false;
+    b.back = 40 + Math.random() * 20;
+    this.barrelPick = null;
+    this.arms.explode(b.x, b.y + 0.4, b.z, 5.2, 160 * DIRECTOR.hpMul(this.time), 3.5);
+    this.fx.shake = Math.min(1.3, this.fx.shake + 0.4);
   }
 
   private gameOver() {
@@ -404,7 +489,8 @@ export class Game {
     }
     const portrait = innerWidth < innerHeight;
     const menu = this.state === 'menu';
-    const off = menu ? new THREE.Vector3(8, 26, 20) : portrait ? new THREE.Vector3(0, 21, 8.5) : new THREE.Vector3(0, 15.5, 6.8);
+    const off = menu ? new THREE.Vector3(8, 26, 20) : portrait ? new THREE.Vector3(0, 30, 12.5) : new THREE.Vector3(0, 23, 9.8);
+    if (!menu) off.multiplyScalar(this.zoom);
     const target = this.hero.pos;
     const k = 1 - Math.exp(-raw * (menu ? 1.5 : 6));
     this.camLook.lerp(target, k);
@@ -421,13 +507,18 @@ export class Game {
       cam.position.z += (Math.random() - 0.5) * s;
     }
     cam.lookAt(this.camLook.x, this.camLook.y + 0.4, this.camLook.z - 0.6);
-    this.engine.followShadow(this.camLook, portrait ? 34 : 30);
+    this.engine.followShadow(this.camLook, (portrait ? 46 : 42) * (menu ? 1 : this.zoom));
+  }
+
+  setZoom(z: number) {
+    this.zoom = Math.min(1.5, Math.max(0.6, z));
+    try { localStorage.setItem('orda-zoom', String(this.zoom)); } catch { /* */ }
   }
 
   /** За теста и бележките. */
   stats() {
     const r = this.engine.renderer.info.render;
-    return { fps: Math.round(this.engine.fps), calls: r.calls, tris: r.triangles, zombies: this.horde.alive, t: Math.round(this.time), kills: this.kills, hp: Math.round(this.hero.hp), arms: this.arms.arms.length, state: this.state };
+    return { fps: Math.round(this.engine.fps), calls: r.calls, tris: r.triangles, zombies: this.horde.alive, t: Math.round(this.time), kills: this.kills, hp: Math.round(this.hero.hp), arms: this.arms.arms.length, chests: this.chestsOpened, pack: this.slots.filter(Boolean).map((s) => s!.kind[0] + s!.tier).join(''), state: this.state };
   }
 }
 

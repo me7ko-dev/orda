@@ -46,6 +46,11 @@ export class Hero {
     hub.position.set(0, 1.18, -0.38);
     hub.castShadow = true;
     this.root.add(bag, hub);
+    // светещ кръг под краката — героят се вижда и в най-голямата тълпа
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.62, 0.8, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x4fd8ff, transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+    ring.position.y = 0.04;
+    ring.renderOrder = 1;
+    this.root.add(ring);
 
     this.mixer = new THREE.AnimationMixer(m);
     const g = gltf('hero');
@@ -178,6 +183,14 @@ export class Hero {
     if (nx > b.x1 - m) { nx = b.x1 - m; pushedOut ||= mx > 0.3; }
     if (nz < b.z0 + m) { nz = b.z0 + m; pushedOut ||= mz < -0.3; }
     if (nz > b.z1 - m) { nz = b.z1 - m; pushedOut ||= mz > 0.3; }
+    // кулички, капандури, климатици — заобикаля ги
+    const r = HERO.radius;
+    for (const k of this.city.blocksOf(b.i)) {
+      if (nx < k.x0 - r || nx > k.x1 + r || nz < k.z0 - r || nz > k.z1 + r) continue;
+      const dl = nx - (k.x0 - r), dr = k.x1 + r - nx, dn = nz - (k.z0 - r), df = k.z1 + r - nz;
+      const mn = Math.min(dl, dr, dn, df);
+      if (mn === dl) nx = k.x0 - r; else if (mn === dr) nx = k.x1 + r; else if (mn === dn) nz = k.z0 - r; else nz = k.z1 + r;
+    }
     this.pos.x = nx;
     this.pos.z = nz;
     this.pos.y = b.h;

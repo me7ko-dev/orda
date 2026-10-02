@@ -163,6 +163,7 @@ export class FX {
   private scorchN = 0;
   private decalMax: number;
   private beams: THREE.Mesh[] = [];
+  private fires: { x: number; y: number; z: number; s: number; acc: number; n: number }[] = [];
   private beamUsed = 0;
   shake = 0;
   private m4 = new THREE.Matrix4();
@@ -255,8 +256,13 @@ export class FX {
       const s = 1.5 + Math.random() * 3.5;
       this.particle(x, y + 0.9, z, Math.cos(a) * s + dirX * 3, 2 + Math.random() * 4, Math.sin(a) * s + dirZ * 3, 0.6 + Math.random() * 0.5, 0.08 + Math.random() * 0.1, Math.random() < 0.5 ? 0xa0060c : 0xd01018, 20, floor, k < 2);
     }
+    // парчета
+    for (let k = 0; k < (QUALITY.value === 'low' ? 1 : 3); k++) {
+      const a = Math.random() * 6.28, s = 2 + Math.random() * 3;
+      this.particle(x, y + 1, z, Math.cos(a) * s + dirX * 2, 3 + Math.random() * 4, Math.sin(a) * s + dirZ * 2, 1 + Math.random() * 0.6, 0.12 + Math.random() * 0.08, Math.random() < 0.5 ? 0x4a6b22 : 0x6e1a12, 22, floor);
+    }
     // червена мъгла
-    this.add({ k: PK.Smoke, x, y: y + 0.9, z, life: 0.35, s0: 0.4 * amount, s1: 1.1 * amount, r: 0.8, g: 0.05, b: 0.07, a: 0.55, vy: 0.4 });
+    this.add({ k: PK.Smoke, x, y: y + 0.9, z, life: 0.4, s0: 0.5 * amount, s1: 1.4 * amount, r: 0.8, g: 0.05, b: 0.07, a: 0.6, vy: 0.4 });
     this.decal(x, floor, z, 1.2 + Math.random() * 1.4 * amount);
   }
 
@@ -268,6 +274,46 @@ export class FX {
     this.decalN++;
     this.decals.count = Math.min(this.decalMax, this.decalN);
     this.decals.instanceMatrix.needsUpdate = true;
+  }
+
+  /** Гилза — изхвърча настрани от оръжието */
+  casing(x: number, y: number, z: number, sx: number, sz: number, floor: number) {
+    this.add({ k: PK.Solid, x, y, z, vx: sx * (1.5 + Math.random()) + (Math.random() - 0.5), vy: 2 + Math.random() * 2, vz: sz * (1.5 + Math.random()) + (Math.random() - 0.5), grav: 22, floor, life: 1.2, s0: 0.06, s1: 0.05, r: 0.85, g: 0.62, b: 0.15 });
+  }
+
+  /** Искри при попадение */
+  spark(p: THREE.Vector3, n = 3, color = 0xffd27a) {
+    this.col.set(color);
+    for (let k = 0; k < n; k++) {
+      const a = Math.random() * 6.28, s = 2 + Math.random() * 4;
+      this.add({ k: PK.Glow, x: p.x, y: p.y, z: p.z, vx: Math.cos(a) * s, vy: 1 + Math.random() * 3, vz: Math.sin(a) * s, grav: 14, life: 0.15 + Math.random() * 0.15, s0: 0.25, s1: 0.05, r: this.col.r, g: this.col.g, b: this.col.b });
+    }
+  }
+
+  /** Облачета прах (приземяване) */
+  dust(x: number, y: number, z: number, n = 8, size = 0.8) {
+    for (let k = 0; k < n; k++) {
+      const a = (k / n) * 6.28 + Math.random() * 0.3, s = 2 + Math.random() * 1.5;
+      const c = 0.82 + Math.random() * 0.1;
+      this.add({ k: PK.Smoke, x: x + Math.cos(a) * 0.3, y: y + 0.15, z: z + Math.sin(a) * 0.3, vx: Math.cos(a) * s, vy: 0.3 + Math.random() * 0.4, vz: Math.sin(a) * s, drag: 4, life: 0.6 + Math.random() * 0.3, s0: size * 0.4, s1: size, r: c, g: c * 0.97, b: c * 0.92, a: 0.55 });
+    }
+  }
+
+  /** Златни искри (сандък, сливане) */
+  sparkle(x: number, y: number, z: number, n = 30) {
+    for (let k = 0; k < n; k++) {
+      const a = Math.random() * 6.28, s = 1 + Math.random() * 4;
+      this.add({ k: PK.Glow, x, y: y + 0.6, z, vx: Math.cos(a) * s, vy: 3 + Math.random() * 6, vz: Math.sin(a) * s, grav: 7, drag: 1, life: 0.8 + Math.random() * 0.8, s0: 0.35, s1: 0.08, r: 1, g: 0.82 + Math.random() * 0.15, b: 0.25 + Math.random() * 0.3, spin: 4 });
+    }
+    this.flash(this.v.set(x, y + 1, z), 4, 0xffe27a, 0.3);
+  }
+
+  /** Постоянен огън (горяща кола): пламъци + стълб дим */
+  addFire(x: number, y: number, z: number, s = 1) {
+    this.fires.push({ x, y, z, s, acc: Math.random(), n: 0 });
+  }
+  clearFires() {
+    this.fires.length = 0;
   }
 
   explosion(x: number, y: number, z: number, r: number, floor: number) {
@@ -340,6 +386,21 @@ export class FX {
   }
 
   update(dt: number, _camera: THREE.Camera) {
+    // горящи коли
+    const rate = QUALITY.value === 'low' ? 6 : 13;
+    for (const f of this.fires) {
+      f.acc += dt * rate;
+      while (f.acc >= 1) {
+        f.acc -= 1;
+        f.n++;
+        const jx = (Math.random() - 0.5) * 1.6 * f.s, jz = (Math.random() - 0.5) * 1.6 * f.s;
+        this.add({ k: PK.Glow, x: f.x + jx, y: f.y, z: f.z + jz, vx: jx * 0.2, vy: 1.5 + Math.random() * 2, vz: jz * 0.2, life: 0.5 + Math.random() * 0.4, s0: f.s * (0.9 + Math.random() * 0.5), s1: f.s * 0.2, r: 1, g: 0.35 + Math.random() * 0.35, b: 0.08, spin: (Math.random() - 0.5) * 3 });
+        if (f.n % 3 === 0) {
+          const c = 0.18 + Math.random() * 0.12;
+          this.add({ k: PK.Smoke, x: f.x + jx * 0.5, y: f.y + 1, z: f.z + jz * 0.5, vx: 0.4 + Math.random() * 0.4, vy: 2 + Math.random() * 1.2, vz: (Math.random() - 0.5) * 0.4, life: 2.6 + Math.random() * 1.2, s0: f.s * 0.8, s1: f.s * 3.6, r: c, g: c, b: c, a: 0.42, spin: (Math.random() - 0.5) });
+        }
+      }
+    }
     for (let k = this.beamUsed; k < this.beams.length; k++) this.beams[k].visible = false;
     this.beamUsed = 0;
     this.shake = Math.max(0, this.shake - dt * 2.5);

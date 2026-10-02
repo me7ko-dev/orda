@@ -136,6 +136,16 @@ button { font-family: inherit; cursor: pointer; border: 0; }
 .details { min-height: 44px; text-align: center; font-size: 14px; background: rgba(10,16,28,0.6); border-radius: 12px; padding: 6px 12px; }
 .details:empty { display: none; }
 
+@media (max-width: 480px) {
+  .hud { padding-left: 8px; padding-right: 8px; gap: 4px; }
+  .hp-ic { display: none; }
+  .hp-bar { width: 96px; height: 18px; }
+  .mid .time { font-size: 18px; }
+  .mid .wave { font-size: 13px; }
+  .right { gap: 4px; }
+  .kills { padding: 2px 6px; font-size: 14px; }
+  .btn-ic { width: 34px; height: 34px; font-size: 16px; border-radius: 10px; }
+}
 @media (max-height: 640px) {
   .pack-title { font-size: 26px; }
   .cell { width: clamp(64px, 16vh, 96px); }

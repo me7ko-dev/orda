@@ -79,34 +79,34 @@ export const BACKPACK = { cols: 3, rows: 3 };
 
 export const HERO = {
   hp: 100,
-  speed: 6.2,
+  speed: 5.7,
   /** колко далеч скача между покривите (празнина в метри) */
   leapGap: 6.2,
   /** с колко метра нагоре може да скочи */
   leapUp: 3.6,
-  regenDelay: 4,
-  regen: 3,
+  regenDelay: 3,
+  regen: 5,
   radius: 0.45,
 };
 
 export type ZombieKind = 'walker' | 'runner' | 'brute' | 'boss';
 
-export const ZOMBIES: Record<ZombieKind, { hp: number; speed: number; scale: number; dmg: number; tint: [number, number, number]; climb: number }> = {
-  walker: { hp: 16, speed: 2.1, scale: 1, dmg: 5, tint: [1, 1, 1], climb: 1.35 },
-  runner: { hp: 11, speed: 4.4, scale: 0.9, dmg: 4, tint: [1.15, 1.05, 0.7], climb: 2.6 },
-  brute: { hp: 120, speed: 1.6, scale: 1.55, dmg: 18, tint: [1.2, 0.7, 0.65], climb: 1.1 },
-  boss: { hp: 1400, speed: 1.9, scale: 2.5, dmg: 35, tint: [0.85, 0.6, 1.25], climb: 1.4 },
+export const ZOMBIES: Record<ZombieKind, { hp: number; speed: number; scale: number; dmg: number; tint: [number, number, number]; climb: number; jump: number }> = {
+  walker: { hp: 16, speed: 2.6, scale: 1, dmg: 5, tint: [1, 1, 1], climb: 2.0, jump: 0.55 },
+  runner: { hp: 11, speed: 6.0, scale: 0.9, dmg: 4, tint: [1.15, 1.05, 0.7], climb: 3.6, jump: 1 },
+  brute: { hp: 120, speed: 2.1, scale: 1.55, dmg: 18, tint: [1.2, 0.7, 0.65], climb: 1.7, jump: 0.4 },
+  boss: { hp: 1400, speed: 2.4, scale: 2.5, dmg: 35, tint: [0.85, 0.6, 1.25], climb: 2.1, jump: 1 },
 };
 
 /** Темпото на ордата според изминалите секунди. */
 export const DIRECTOR = {
   waveLength: 45,
-  spawnRate: (t: number) => 1.9 + t * 0.055,
-  hpMul: (t: number) => 1 + t * 0.011,
-  runnerShare: (t: number) => Math.min(0.45, Math.max(0, (t - 30) / 400)),
+  spawnRate: (t: number) => 1.6 + t * 0.06,
+  hpMul: (t: number) => 1 + t * 0.016,
+  runnerShare: (t: number) => Math.min(0.45, (t + 5) / 300),
   bruteEvery: 14,
-  bruteFrom: 75,
+  bruteFrom: 60,
   bossEvery: 4, // всяка 4-та вълна
   chestFirst: 6,
-  chestEvery: (t: number) => Math.min(30, 16 + t * 0.05),
+  chestEvery: (t: number) => Math.min(26, 13 + t * 0.045),
 };

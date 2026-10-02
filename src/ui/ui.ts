@@ -71,6 +71,7 @@ export class UI {
       <div class="mid"><div class="wave">Вълна 1</div><div class="time">0:00</div></div>
       <div class="right">
         <div class="kills"><b>☠</b><span>0</span></div>
+        <button class="btn-ic btn-zoom" title="Камера: близо/далеч (колелцето)">🔍</button>
         <button class="btn-ic btn-pack" title="Раница (B)">🎒<em>1</em></button>
         <button class="btn-ic btn-pause" title="Пауза (Esc)">⏸</button>
       </div>`;
@@ -83,6 +84,12 @@ export class UI {
     this.armsEl = $('.btn-pack em', this.hud);
     $('.btn-pause', this.hud).onclick = () => this.togglePause();
     $('.btn-pack', this.hud).onclick = () => this.game.openPack(false);
+    $('.btn-zoom', this.hud).onclick = () => {
+      const z = this.game.zoom;
+      const next = z < 0.85 ? 1 : z < 1.15 ? 1.3 : 0.75;
+      this.game.setZoom(next);
+      this.toast(next < 0.85 ? 'Камера: близо' : next < 1.15 ? 'Камера: средно' : 'Камера: далеч');
+    };
 
     this.bossBar = el('div', 'boss hidden', '<div class="boss-name">БОС</div><div class="boss-bar"><i></i></div>');
     this.bossFill = $('i', this.bossBar);
@@ -271,6 +278,11 @@ export class UI {
     canvas.addEventListener('pointerup', end);
     canvas.addEventListener('pointercancel', end);
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    canvas.addEventListener('wheel', (e) => {
+      if (this.game.state !== 'play') return;
+      e.preventDefault();
+      this.game.setZoom(this.game.zoom * (e.deltaY > 0 ? 1.08 : 1 / 1.08));
+    }, { passive: false });
   }
 
   private readInput() {

@@ -20,7 +20,7 @@ export class Horde {
   x: Float32Array; y: Float32Array; z: Float32Array;
   vx: Float32Array; vz: Float32Array; vy: Float32Array;
   yaw: Float32Array;
-  state: Uint8Array; kind: Uint8Array; clip: Uint8Array;
+  state: Uint8Array; kind: Uint8Array; clip: Uint8Array; jumper: Uint8Array;
   hp: Float32Array; maxHp: Float32Array; speed: Float32Array; scale: Float32Array; dmg: Float32Array; climbSp: Float32Array;
   bld: Int16Array; nx: Float32Array; nz: Float32Array;
   animT: Float32Array; hitT: Float32Array; atkT: Float32Array; stateT: Float32Array;
@@ -79,7 +79,7 @@ export class Horde {
 
     const F = (n = 1) => new Float32Array(max * n);
     this.x = F(); this.y = F(); this.z = F(); this.vx = F(); this.vz = F(); this.vy = F(); this.yaw = F();
-    this.state = new Uint8Array(max); this.kind = new Uint8Array(max); this.clip = new Uint8Array(max);
+    this.state = new Uint8Array(max); this.kind = new Uint8Array(max); this.clip = new Uint8Array(max); this.jumper = new Uint8Array(max);
     this.hp = F(); this.maxHp = F(); this.speed = F(); this.scale = F(); this.dmg = F(); this.climbSp = F();
     this.bld = new Int16Array(max); this.nx = F(); this.nz = F();
     this.animT = F(); this.hitT = F(); this.atkT = F(); this.stateT = F();
@@ -117,6 +117,8 @@ export class Horde {
     this.scale[i] = k.scale * (0.9 + r() * 0.2);
     this.dmg[i] = k.dmg;
     this.climbSp[i] = k.climb * (0.8 + r() * 0.4);
+    // скача ли след героя от покрив на покрив
+    this.jumper[i] = r() < k.jump ? 1 : 0;
     this.bld[i] = -1;
     this.animT[i] = r() * 5;
     this.hitT[i] = 0; this.atkT[i] = 0; this.stateT[i] = 0;
@@ -293,14 +295,22 @@ export class Horde {
         wantX = hx - this.x[i];
         wantZ = hz - this.z[i];
         const b = city.buildings[this.bld[i]];
+        if (heroOn !== b && this.jumper[i]) {
+          const nb = this.roofStep(b, tgt);
+          if (nb) {
+            // към най-близката точка на следващия покрив
+            wantX = Math.min(nb.x1, Math.max(nb.x0, this.x[i])) - this.x[i];
+            wantZ = Math.min(nb.z1, Math.max(nb.z0, this.z[i])) - this.z[i];
+          }
+        }
         if (heroOn === b) {
           const d = Math.hypot(wantX, wantZ);
-          const reach = 0.55 * sc + 0.55;
+          const reach = 0.6 * sc + 0.75;
           if (d < reach && Math.abs(hero.pos.y - this.y[i]) < 1.2) {
             moving = false;
             this.atkT[i] += dt;
             this.yaw[i] = Math.atan2(wantX, wantZ);
-            if (this.atkT[i] > 1.0) {
+            if (this.atkT[i] > 0.85) {
               this.atkT[i] = 0;
               this.onAttack?.(i, this.dmg[i]);
             }
@@ -309,9 +319,9 @@ export class Horde {
       } else if (st === ZS.Climb) {
         const b = city.buildings[this.bld[i]];
         const busy = this.crowdAbove(i);
-        this.y[i] += this.climbSp[i] * dt * (busy ? 0.35 : 1);
-        // героят избяга на друг покрив — пада обратно (ако още е ниско)
-        if (tgt !== b && this.y[i] < b.h * 0.55) {
+        this.y[i] += this.climbSp[i] * dt * (busy ? 0.6 : 1);
+        // героят избяга на друг покрив — пада обратно само ако още е съвсем ниско
+        if (tgt !== b && this.y[i] < b.h * 0.15) {
           this.state[i] = ZS.Fall;
           this.vx[i] = this.nx[i] * 1.5; this.vz[i] = this.nz[i] * 1.5; this.vy[i] = 0;
           this.x[i] += this.nx[i] * 0.4; this.z[i] += this.nz[i] * 0.4;
@@ -410,17 +420,39 @@ export class Horde {
         }
       } else if (st === ZS.Roof) {
         const b = city.buildings[this.bld[i]];
-        const m = 0.15;
-        if (this.x[i] < b.x0 - m || this.x[i] > b.x1 + m || this.z[i] < b.z0 - m || this.z[i] > b.z1 + m) {
-          // стъпи отвъд ръба — пада
-          this.state[i] = ZS.Fall;
-          this.vy[i] = 1.5;
-          this.vx[i] *= 0.8; this.vz[i] *= 0.8;
-        } else if (heroOn === b) {
+        if (heroOn === b) {
           // не излизат от покрива, докато героят е тук
           const mm = 0.45;
           this.x[i] = Math.min(b.x1 - mm, Math.max(b.x0 + mm, this.x[i]));
           this.z[i] = Math.min(b.z1 - mm, Math.max(b.z0 + mm, this.z[i]));
+        }
+        const m = 0.15;
+        if (this.x[i] < b.x0 - m || this.x[i] > b.x1 + m || this.z[i] < b.z0 - m || this.z[i] > b.z1 + m) {
+          // на ръба: скача след героя на съседния покрив (ако може), иначе пада
+          this.state[i] = ZS.Fall;
+          // накъде да скочи: към следващия покрив по пътя до героя
+          const next = this.jumper[i] && tgt !== b ? city.nextRoof(b, tgt) : null;
+          if (next && city.links[b.i]?.includes(next.i)) {
+            const tgt2 = next;
+            const g = 24;
+            const lx = Math.min(tgt2.x1 - 1.2, Math.max(tgt2.x0 + 1.2, this.x[i]));
+            const lz = Math.min(tgt2.z1 - 1.2, Math.max(tgt2.z0 + 1.2, this.z[i]));
+            const apex = Math.max(this.y[i], tgt2.h) + 1.4;
+            const up = Math.sqrt(2 * g * (apex - this.y[i]));
+            const T = up / g + Math.sqrt(2 * g * (apex - tgt2.h)) / g;
+            this.vx[i] = (lx - this.x[i]) / T;
+            this.vz[i] = (lz - this.z[i]) / T;
+            this.vy[i] = up;
+            this.yaw[i] = Math.atan2(this.vx[i], this.vz[i]);
+          } else {
+            this.vy[i] = 1.5;
+            this.vx[i] *= 0.8; this.vz[i] *= 0.8;
+          }
+        } else {
+          const r = 0.3 * sc;
+          for (const k of city.blocksOf(b.i)) {
+            if (this.x[i] > k.x0 - r && this.x[i] < k.x1 + r && this.z[i] > k.z0 - r && this.z[i] < k.z1 + r) this.pushOut(i, k, r);
+          }
         }
       }
 
@@ -441,6 +473,15 @@ export class Horde {
       }
     }
     this.render();
+  }
+
+  /** Следващият покрив към героя (пази се за кратко, за да не се смята за всяко зомби). */
+  private stepCache = new Map<number, Building | null>();
+  private stepFor = -1;
+  private roofStep(from: Building, to: Building): Building | null {
+    if (this.stepFor !== to.i) { this.stepCache.clear(); this.stepFor = to.i; }
+    if (!this.stepCache.has(from.i)) this.stepCache.set(from.i, this.city.nextRoof(from, to));
+    return this.stepCache.get(from.i) ?? null;
   }
 
   /** Колко високо е „подът“ под точката (покрив или земя). */

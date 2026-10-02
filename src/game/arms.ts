@@ -88,6 +88,9 @@ export class Arms {
   private s = new THREE.Vector3();
   onShot?: (kind: WeaponKind) => void;
   onExplode?: (x: number, y: number, z: number) => void;
+  /** червена бъчва, която си струва да се взриви (около нея има зомбита) */
+  barrelPick?: () => { id: number; p: THREE.Vector3 } | null;
+  onBarrel?: (id: number) => void;
 
   constructor(scene: THREE.Scene, public hero: Hero, public horde: Horde, public fx: FX) {
     scene.add(this.group);
@@ -169,6 +172,8 @@ export class Arms {
     const hp = hero.pos;
     const center = this.v.set(hp.x, hp.y + 1.3, hp.z);
     this.gatherTargets(center.x, center.y, center.z, this.maxRange() + 1);
+    const bt = active ? this.barrelPick?.() ?? null : null;
+    let barrelShot = false;
 
     const bp = hero.backpack.getWorldPosition(new THREE.Vector3());
     const face = hero.facing;
@@ -245,6 +250,17 @@ export class Arms {
             if (Math.random() < 0.3) this.onShot?.(a.item.kind);
           }
         } else a.beamOn = 0;
+      } else if (bt && !barrelShot && a.cool <= 0 && (w.mode === 'bullet' || w.mode === 'pellets') && bt.p.distanceTo(a.tip) < st.range + 2) {
+        // изстрел по бъчвата → голям взрив сред тълпата
+        barrelShot = true;
+        a.cool = 1 / st.rate;
+        a.recoil = 1;
+        a.aim.copy(bt.p).sub(a.tip).normalize();
+        const muzzle = new THREE.Vector3().copy(a.tip).addScaledVector(a.aim, a.muzzle);
+        this.fx.flash(muzzle, 0.9, 0xffd890, 0.06);
+        this.fx.tracer(muzzle, bt.p, 0xfff0b0, 0.06, 0.08);
+        this.onShot?.(a.item.kind);
+        this.onBarrel?.(bt.id);
       } else if (t >= 0 && a.cool <= 0) {
         a.cool = 1 / st.rate * (0.9 + Math.random() * 0.2);
         a.recoil = 1;
@@ -284,7 +300,14 @@ export class Arms {
     const st = weaponStats(a.item.kind, a.item.tier);
     const muzzle = new THREE.Vector3().copy(a.tip).addScaledVector(a.aim, a.muzzle);
     const target = new THREE.Vector3(H.x[t], H.y[t] + 0.95 * H.scale[t], H.z[t]);
-    this.fx.flash(muzzle, 0.45 + st.dmg * 0.004 + (w.mode === 'pellets' ? 0.4 : 0), 0xffd890, 0.05);
+    const fs = 0.75 + Math.min(0.6, st.dmg * 0.005) + (w.mode === 'pellets' ? 0.5 : 0);
+    this.fx.flash(muzzle, fs, 0xffd890, 0.05);
+    this.fx.flash(new THREE.Vector3().copy(muzzle).addScaledVector(a.aim, 0.3 + fs * 0.2), fs * 0.6, 0xffb040, 0.04);
+    // гилза настрани
+    if (w.mode === 'bullet' || w.mode === 'pellets') {
+      if (Math.random() < (st.rate > 5 ? 0.45 : 1)) this.fx.casing(a.tip.x, a.tip.y, a.tip.z, a.aim.z, -a.aim.x, this.hero.pos.y);
+      if (w.kind === 'sniper' || w.mode === 'pellets') this.fx.shake = Math.min(0.5, this.fx.shake + 0.06);
+    }
     this.onShot?.(a.item.kind);
 
     if (w.mode === 'bullet') {
@@ -356,6 +379,7 @@ export class Arms {
       const killed = H.damage(h.i, dmg, dir.x, dir.z, knock);
       const p = new THREE.Vector3().copy(o).addScaledVector(dir, h.t);
       this.fx.particle(p.x, p.y, p.z, dir.x * 3 + (Math.random() - 0.5) * 2, 1 + Math.random() * 2, dir.z * 3 + (Math.random() - 0.5) * 2, 0.35, 0.07, 0xc0101a, 18, floorY);
+      if (Math.random() < 0.5) this.fx.spark(p, 2, 0xffe2a0);
       if (!killed && Math.random() < 0.2) this.fx.decal(H.x[h.i] + dir.x, floorY, H.z[h.i] + dir.z, 0.5);
     }
     // спира в последното ударено, ако не може да мине през още

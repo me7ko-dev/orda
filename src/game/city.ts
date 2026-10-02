@@ -151,11 +151,21 @@ function asphaltTexture(): THREE.CanvasTexture {
   g.fillRect(0, 0, S, S);
   const r = rng(9);
   noise(g, S, S, 22, r);
-  for (let i = 0; i < 9; i++) {
-    g.fillStyle = `rgba(40,40,45,${0.04 + r() * 0.06})`;
+  for (let i = 0; i < 6; i++) {
+    g.fillStyle = `rgba(40,40,45,${0.015 + r() * 0.025})`;
     g.beginPath();
-    g.arc(r() * S, r() * S, 10 + r() * 40, 0, 7);
+    g.arc(r() * S, r() * S, 20 + r() * 50, 0, 7);
     g.fill();
+  }
+  // пукнатини
+  g.strokeStyle = 'rgba(30,30,34,0.35)';
+  g.lineWidth = 1;
+  for (let i = 0; i < 5; i++) {
+    let x = r() * S, y = r() * S;
+    g.beginPath();
+    g.moveTo(x, y);
+    for (let k = 0; k < 6; k++) { x += (r() - 0.5) * 30; y += (r() - 0.5) * 30; g.lineTo(x, y); }
+    g.stroke();
   }
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
@@ -253,6 +263,12 @@ export class City {
   blocked: Uint8Array;
   walkable: number[] = [];
   center = new THREE.Vector3();
+  /** горящи коли и пожари (за ефектите) */
+  fires: { x: number; y: number; z: number; s: number }[] = [];
+  /** препятствия по покривите (кулички, капандури, климатици) — героят и зомбитата ги заобикалят */
+  roofBlocks: (Rect & { b: number })[] = [];
+  /** места за червените бъчви */
+  barrelSpots: { x: number; y: number; z: number }[] = [];
 
   constructor(seed = 7) {
     const r = rng(seed);
@@ -388,7 +404,7 @@ export class City {
 
     // земя: асфалт + тротоари около сградите + маркировка
     const B = this.bounds;
-    const ground = planeXZ({ x0: B.x0 - 60, z0: B.z0 - 60, x1: B.x1 + 60, z1: B.z1 + 60 }, 0, 6);
+    const ground = planeXZ({ x0: B.x0 - 60, z0: B.z0 - 60, x1: B.x1 + 60, z1: B.z1 + 60 }, 0, 9);
     add(ground, new THREE.MeshStandardMaterial({ map: asphaltTexture(), roughness: 0.95 }), false);
     const walks: THREE.BufferGeometry[] = [];
     for (const b of this.buildings) {
@@ -413,15 +429,69 @@ export class City {
     const roofProps: [string, number, number][] = [
       ['ac', 1.1, 0.5], ['ac_double', 1.6, 0.5], ['vent', 1.0, 0.4], ['dish', 1.4, 0.3], ['antenna', 2.6, 0.2], ['watertank', 2.2, 0.15], ['watertower', 4.2, 0.18],
     ];
-    const place = (name: string, size: number, x: number, y: number, z: number, rot: number, by: 'height' | 'max' = 'height') => {
+    const place = (name: string, size: number, x: number, y: number, z: number, rot: number, by: 'height' | 'max' = 'height', block?: Building) => {
       const o = fitModel(cloneModel(name), size, by);
       o.position.set(x, y, z);
       o.rotation.y = rot;
       batch.add(o);
+      if (block) {
+        const bb = new THREE.Box3().setFromObject(o);
+        this.roofBlocks.push({ x0: bb.min.x, z0: bb.min.z, x1: bb.max.x, z1: bb.max.z, b: block.i });
+      }
     };
+    // кулички на стълбища, капандури и слънчеви панели (направени от кутии)
+    const hutWall = new THREE.MeshStandardMaterial({ color: 0xc9cdd3, roughness: 0.85 });
+    const hutTop = new THREE.MeshStandardMaterial({ color: 0x8d949c, roughness: 0.9 });
+    const doorMat = new THREE.MeshStandardMaterial({ color: 0x3b4a5a, roughness: 0.6 });
+    const glassMat = new THREE.MeshStandardMaterial({ color: 0x5f8db5, roughness: 0.15, metalness: 0.6 });
+    const frameMat = new THREE.MeshStandardMaterial({ color: 0xe4e7ea, roughness: 0.6 });
+    const panelMat = new THREE.MeshStandardMaterial({ color: 0x1d3557, roughness: 0.25, metalness: 0.5 });
+    const gHut: THREE.BufferGeometry[] = [], gTop: THREE.BufferGeometry[] = [], gDoor: THREE.BufferGeometry[] = [], gGlass: THREE.BufferGeometry[] = [], gFrame: THREE.BufferGeometry[] = [], gPanel: THREE.BufferGeometry[] = [];
+    const block = (b: Building, x0: number, z0: number, x1: number, z1: number) => this.roofBlocks.push({ x0, z0, x1, z1, b: b.i });
+    for (const b of this.buildings) {
+      if (!b.playable) continue;
+      const w = b.x1 - b.x0, d = b.z1 - b.z0, area = w * d;
+      // куличка в ъгъла
+      if (area > 120 && r() < 0.75) {
+        const cx = r() < 0.5 ? b.x0 + 2.2 : b.x1 - 2.2, cz = r() < 0.5 ? b.z0 + 2.0 : b.z1 - 2.0;
+        gHut.push(boxAt(cx - 1.3, b.h, cz - 1.1, cx + 1.3, b.h + 2.3, cz + 1.1));
+        gTop.push(boxAt(cx - 1.45, b.h + 2.3, cz - 1.25, cx + 1.45, b.h + 2.45, cz + 1.25));
+        const dz = cz < (b.z0 + b.z1) / 2 ? cz + 1.11 : cz - 1.12;
+        gDoor.push(boxAt(cx - 0.45, b.h, dz - 0.01, cx + 0.45, b.h + 1.9, dz + 0.01));
+        block(b, cx - 1.3, cz - 1.1, cx + 1.3, cz + 1.1);
+      }
+      // капандури (стъклени)
+      const nSky = area > 150 ? 1 + Math.floor(r() * 2) : r() < 0.5 ? 1 : 0;
+      for (let k = 0; k < nSky; k++) {
+        const cx = b.x0 + 3 + r() * (w - 6), cz = b.z0 + 3 + r() * (d - 6);
+        const along = r() < 0.5;
+        const hx = along ? 1.6 : 0.9, hz = along ? 0.9 : 1.6;
+        gFrame.push(boxAt(cx - hx, b.h, cz - hz, cx + hx, b.h + 0.35, cz + hz));
+        gGlass.push(boxAt(cx - hx + 0.12, b.h + 0.35, cz - hz + 0.12, cx + hx - 0.12, b.h + 0.6, cz + hz - 0.12));
+        block(b, cx - hx, cz - hz, cx + hx, cz + hz);
+      }
+      // слънчеви панели (ред)
+      if (area > 140 && r() < 0.45) {
+        const cz = r() < 0.5 ? b.z0 + 2.6 : b.z1 - 2.6;
+        const x0 = b.x0 + 3, x1 = b.x1 - 3;
+        for (let x = x0; x < x1 - 1.2; x += 1.5) {
+          const g = new THREE.BoxGeometry(1.3, 0.06, 1.8);
+          g.rotateX(-0.45);
+          g.translate(x + 0.65, b.h + 0.6, cz);
+          gPanel.push(g);
+          gFrame.push(boxAt(x + 0.6, b.h, cz - 0.05, x + 0.7, b.h + 0.55, cz + 0.05));
+        }
+        block(b, x0, cz - 0.9, x1, cz + 0.9);
+      }
+    }
+    for (const [list, mat] of [[gHut, hutWall], [gTop, hutTop], [gDoor, doorMat], [gGlass, glassMat], [gFrame, frameMat], [gPanel, panelMat]] as const) {
+      if (!list.length) continue;
+      const nonIdx = list.map((g) => (g.index ? g.toNonIndexed() : g));
+      add(mergeGeometries(nonIdx), mat);
+    }
     for (const b of this.buildings) {
       if (!b.playable && r() < 0.5) continue;
-      const n = b.playable ? 2 + Math.floor(r() * 3) : 1 + Math.floor(r() * 2);
+      const n = b.playable ? 2 + Math.floor(r() * 3) + Math.floor(((b.x1 - b.x0) * (b.z1 - b.z0)) / 90) : 1 + Math.floor(r() * 2);
       for (let k = 0; k < n; k++) {
         let pick = roofProps[Math.floor(r() * roofProps.length)];
         if (pick[0] === 'watertower' && (b.x1 - b.x0 < 12 || r() < 0.5)) pick = roofProps[0];
@@ -432,17 +502,23 @@ export class City {
         let pz = b.z0 + m + r() * (b.z1 - b.z0 - 2 * m);
         if (side === 0) pz = b.z0 + m; else if (side === 1) pz = b.z1 - m; else if (side === 2) px = b.x0 + m; else px = b.x1 - m;
         const rot = side < 2 ? 0 : Math.PI / 2;
-        place(pick[0], pick[1], px, b.h, pz, rot + (r() < 0.5 ? Math.PI : 0));
+        place(pick[0], pick[1], px, b.h, pz, rot + (r() < 0.5 ? Math.PI : 0), 'height', b.playable ? b : undefined);
       }
     }
 
     // улицата: коли, кофи, конуси, лампи
     const cars = ['car_sport', 'car_hatch', 'car_police', 'car_sport2', 'car_sedan'];
     const ringIn = 1.3 + 1.6; // разстояние от тротоара
+    const charred = new THREE.MeshStandardMaterial({ color: 0x2b2725, roughness: 1, metalness: 0.2 });
     const carAt = (x: number, z: number, along: 'x' | 'z') => {
       const o = fitModel(cloneModel(cars[Math.floor(r() * cars.length)]), 4.3, 'max');
       o.position.set(x, 0, z);
       o.rotation.y = (along === 'x' ? Math.PI / 2 : 0) + (r() < 0.5 ? Math.PI : 0);
+      // някои коли горят (апокалипсис)
+      if (r() < 0.22) {
+        o.traverse((c) => { if ((c as THREE.Mesh).isMesh) (c as THREE.Mesh).material = charred; });
+        this.fires.push({ x, y: 0.9, z, s: 1.1 });
+      }
       batch.add(o);
       const hw = along === 'x' ? 2.2 : 1.0, hd = along === 'x' ? 1.0 : 2.2;
       this.obstacles.push({ x0: x - hw, z0: z - hd, x1: x + hw, z1: z + hd });
@@ -469,7 +545,25 @@ export class City {
       if (r() < 0.5) {
         place('dumpster', 1.4, x, 0, z, side ? Math.PI / 2 : 0);
         this.obstacles.push({ x0: x - 0.8, z0: z - 0.8, x1: x + 0.8, z1: z + 0.8 });
+        if (r() < 0.35) this.fires.push({ x, y: 1.3, z, s: 0.75 });
       } else place('trashbags', 0.8, x, 0, z, r() * 6);
+    }
+    // пожари по високите сгради отзад (дим в далечината)
+    for (const b of this.buildings) if (!b.playable && r() < 0.12) this.fires.push({ x: (b.x0 + b.x1) / 2, y: b.h + 0.5, z: (b.z0 + b.z1) / 2, s: 1.6 });
+    // червени бъчви: в уличките до сградите и по ъглите на покривите
+    for (const b of this.buildings) {
+      if (!b.playable) continue;
+      if (r() < 0.7) {
+        const side = Math.floor(r() * 4);
+        const t = 0.2 + r() * 0.6;
+        const x = side < 2 ? b.x0 + (b.x1 - b.x0) * t : side === 2 ? b.x0 - 0.8 : b.x1 + 0.8;
+        const z = side < 2 ? (side === 0 ? b.z0 - 0.8 : b.z1 + 0.8) : b.z0 + (b.z1 - b.z0) * t;
+        this.barrelSpots.push({ x, y: 0, z });
+      }
+      if (r() < 0.35) {
+        const cx = r() < 0.5 ? b.x0 + 1.1 : b.x1 - 1.1, cz = r() < 0.5 ? b.z0 + 1.1 : b.z1 - 1.1;
+        this.barrelSpots.push({ x: cx, y: b.h, z: cz });
+      }
     }
     for (let k = 0; k < 10; k++) {
       const x = B.x0 + 4 + r() * (B.x1 - B.x0 - 8);
@@ -533,6 +627,16 @@ export class City {
         q[qt++] = n;
       }
     }
+  }
+
+  private blockIdx: (Rect & { b: number })[][] | null = null;
+  /** Препятствията на даден покрив. */
+  blocksOf(bi: number) {
+    if (!this.blockIdx) {
+      this.blockIdx = this.buildings.map(() => []);
+      for (const k of this.roofBlocks) this.blockIdx[k.b].push(k);
+    }
+    return this.blockIdx[bi];
   }
 
   /** Покриви, до които се стига с един скок (от → към). */
