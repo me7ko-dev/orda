@@ -1,0 +1,32 @@
+{
+  "name": "orda",
+  "productName": "Орда",
+  "version": "0.1.0",
+  "description": "3D игра: оцелей срещу ордата зомбита по покривите на града",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host --port 4176",
+    "check": "tsc --noEmit",
+    "models": "node tools/download-models.mjs && node tools/optimize-models.mjs",
+    "deploy": "npm run build && node desktop/deploy.mjs",
+    "shot": "node test/shot.mjs",
+    "exe": "npm run build && node desktop/build.mjs",
+    "desktop": "electron desktop/main.cjs",
+    "play": "node test/play.mjs"
+  },
+  "dependencies": {
+    "@fontsource/rubik": "^5.3.0",
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "@electron/asar": "^4.3.1",
+    "@gltf-transform/cli": "^4.5.1",
+    "@types/three": "^0.180.0",
+    "electron": "^44.5.1",
+    "typescript": "5.9",
+    "vite": "^7.3.6"
+  }
+}

@@ -1,0 +1,21 @@
+<!doctype html><html><body style="margin:0;background:#888"><canvas id="c"></canvas>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+const names = (new URLSearchParams(location.search).get('m') || 'hero,hero_sam,hero_lis,zombie_toon,zombie_classic,zombie_runner').split(',');
+const anim = new URLSearchParams(location.search).get('a') || 'Run';
+const r = new THREE.WebGLRenderer({ canvas: c, antialias: true }); r.setSize(innerWidth, innerHeight); r.outputColorSpace = THREE.SRGBColorSpace;
+const s = new THREE.Scene(); s.background = new THREE.Color(0xbfc6cc);
+s.add(new THREE.HemisphereLight(0xffffff, 0x666666, 2)); const d = new THREE.DirectionalLight(0xffffff, 2); d.position.set(3, 5, 4); s.add(d);
+const cam = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 0.1, 100);
+const mixers = []; const L = new GLTFLoader(); let x = 0; const info = [];
+for (const n of names) {
+  const g = await L.loadAsync('/models-raw/' + n + '.glb');
+  const o = g.scene; const b = new THREE.Box3().setFromObject(o); const h = b.max.y - b.min.y; const sc = 1.8 / h; o.scale.setScalar(sc);
+  o.position.set(x, -b.min.y * sc, 0); s.add(o); x += 1.6;
+  info.push(n + ' h=' + h.toFixed(2) + ' clips=' + g.animations.length);
+  if (g.animations.length) { const m = new THREE.AnimationMixer(o); const cl = g.animations.find(a => a.name.endsWith(anim)) || g.animations.find(a=>/walk/i.test(a.name)) || g.animations[0]; m.clipAction(cl).play(); m.setTime(0.3); mixers.push(m); }
+}
+cam.position.set((x - 1.6) / 2, 1.6, 7.5); cam.lookAt((x - 1.6) / 2, 0.9, 0);
+r.render(s, cam); window.__info = info; window.__ready = true;
+</script></body></html>

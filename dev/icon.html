@@ -1,0 +1,28 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{margin:0;width:512px;height:512px;overflow:hidden;background:#000}
+#bg{position:absolute;inset:0;background:radial-gradient(circle at 50% 38%,#ffd84a 0%,#ff9a0d 38%,#7a2c06 78%,#2a0f04 100%)}
+canvas{position:absolute;inset:0}
+#t{position:absolute;left:0;right:0;bottom:22px;text-align:center;font:900 112px Rubik,Arial Black,sans-serif;color:#ffc21f;letter-spacing:4px;-webkit-text-stroke:10px #3a1600;paint-order:stroke fill;text-shadow:0 8px 0 #3a1600}
+</style></head><body><div id="bg"></div><canvas id="c" width="512" height="512"></canvas><div id="t">ОРДА</div>
+<script type="module">
+import '@fontsource/rubik/900.css';
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
+const r = new THREE.WebGLRenderer({ canvas: c, alpha: true, antialias: true, preserveDrawingBuffer: true });
+r.setSize(512, 512, false); r.outputColorSpace = THREE.SRGBColorSpace;
+const s = new THREE.Scene();
+s.add(new THREE.HemisphereLight(0xffffff, 0x553311, 2.2));
+const d = new THREE.DirectionalLight(0xfff0d0, 3); d.position.set(2, 3, 4); s.add(d);
+const L = new GLTFLoader(); L.setMeshoptDecoder(MeshoptDecoder);
+const g = await L.loadAsync('/models/zombie.glb');
+const o = g.scene; const mixer = new THREE.AnimationMixer(o);
+const clip = g.animations.find(a => a.name.endsWith('Run_Arms')) || g.animations[0];
+mixer.clipAction(clip).play(); mixer.setTime(0.15);
+s.add(o);
+const b = new THREE.Box3().setFromObject(o); const h = b.max.y - b.min.y;
+const cam = new THREE.PerspectiveCamera(30, 1, 0.01, 100);
+cam.position.set(0, b.min.y + h * 0.78, h * 1.55); cam.lookAt(0, b.min.y + h * 0.62, 0);
+await document.fonts.ready;
+r.render(s, cam); window.__ready = true;
+</script></body></html>
